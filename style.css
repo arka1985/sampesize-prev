@@ -1,0 +1,441 @@
+:root {
+    --primary-color: #007bff;
+    /* Strong Blue */
+    --secondary-color: #e83e8c;
+    /* Strong Pink/Magenta */
+    --bg-color: #f0f2f5;
+    /* Light Greyish Blue instead of pure white for contrast */
+    --glass-bg: rgba(255, 255, 255, 0.65);
+    --glass-border: rgba(255, 255, 255, 0.4);
+    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+    --text-main: #333333;
+    /* Dark Grey */
+    --text-muted: #666666;
+    --font-family: 'Outfit', sans-serif;
+    --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    /* Gradient for glass visibility */
+    color: var(--text-main);
+    font-family: var(--font-family);
+    overflow-y: auto;
+    /* Allow scrolling if content is tall */
+    width: 100vw;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.background-blobs {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.6;
+    animation: float 20s infinite ease-in-out;
+}
+
+.blob-1 {
+    background: #ff9a9e;
+    width: 500px;
+    height: 500px;
+    top: -100px;
+    left: -100px;
+    animation-delay: 0s;
+}
+
+.blob-2 {
+    background: #a1c4fd;
+    width: 400px;
+    height: 400px;
+    bottom: -50px;
+    right: -50px;
+    animation-delay: -5s;
+}
+
+.blob-3 {
+    background: #c2e9fb;
+    width: 300px;
+    height: 300px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation-delay: -10s;
+}
+
+@keyframes float {
+    0% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+
+    33% {
+        transform: translate(30px, -50px) rotate(10deg);
+    }
+
+    66% {
+        transform: translate(-20px, 20px) rotate(-5deg);
+    }
+
+    100% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+}
+
+#bg-canvas {
+    /* Particles on top of blobs but under app */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.4;
+    /* Subtle particles */
+}
+
+#app {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 900px;
+    padding: 2rem;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    align-items: center;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.subtitle {
+    color: var(--text-muted);
+    font-weight: 300;
+    margin-top: 0.5rem;
+    font-size: 1.1rem;
+}
+
+.glass-panel {
+    background: rgba(255, 255, 255, 0.4);
+    /* More transparent */
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 24px;
+    padding: 2.5rem;
+    width: 100%;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.visualization-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.metric {
+    flex: 1;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.4);
+    /* Glassy child */
+    backdrop-filter: blur(4px);
+    padding: 2rem;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+}
+
+.metric .label {
+    display: block;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--secondary-color);
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.metric .value {
+    display: block;
+    font-size: 5rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--primary-color);
+    text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.05);
+}
+
+.metric .formula-display {
+    display: block;
+    margin-top: 1rem;
+    font-family: 'Courier New', monospace;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    background: rgba(0, 0, 0, 0.03);
+    padding: 0.5rem;
+    border-radius: 8px;
+}
+
+.visual-representation {
+    flex: 1;
+    height: 250px;
+    /* Taller for curve */
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.5);
+    /* Transparent white */
+    box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+#sample-canvas {
+    width: 100%;
+    height: 100%;
+    border-radius: 16px;
+}
+
+.controls-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    background: rgba(255, 255, 255, 0.5);
+    /* Semi-transparent */
+    backdrop-filter: blur(4px);
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.control-group label {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-main);
+}
+
+.control-group label span {
+    color: var(--primary-color);
+    background: rgba(0, 123, 255, 0.1);
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+}
+
+.description-text {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-top: -0.5rem;
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+}
+
+/* Custom Range Slider - High Visibility & Refined */
+input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    background: transparent;
+    margin: 10px 0;
+    height: 24px;
+    /* Adjusted container height */
+}
+
+input[type=range]:focus {
+    outline: none;
+}
+
+/* Track Styling */
+input[type=range]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 8px;
+    /* Thinner track */
+    cursor: pointer;
+    background: #bdc3c7;
+    border-radius: 4px;
+    border: 1px solid #95a5a6;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Firefox Track */
+input[type=range]::-moz-range-track {
+    width: 100%;
+    height: 8px;
+    /* Thinner track */
+    cursor: pointer;
+    background: #bdc3c7;
+    border-radius: 4px;
+    border: 1px solid #95a5a6;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Thumb Styling */
+input[type=range]::-webkit-slider-thumb {
+    height: 22px;
+    /* Smaller thumb */
+    width: 22px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    margin-top: -8px;
+    /* Centered: (8px track - 22px thumb) / 2 = -7px. -8px for visual balance with border. */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    border: 3px solid #ffffff;
+    /* Slightly thinner border */
+    transition: transform 0.1s ease, background 0.2s, box-shadow 0.2s;
+}
+
+input[type=range]::-moz-range-thumb {
+    height: 22px;
+    width: 22px;
+    border: 3px solid #ffffff;
+    border-radius: 50%;
+    background: var(--primary-color);
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+    background: var(--secondary-color);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Specific colors for different sliders (optional but good for visibility) */
+#prevalence::-webkit-slider-thumb {
+    background: var(--primary-color);
+}
+
+#prevalence::-webkit-slider-thumb:hover {
+    background: #0056b3;
+}
+
+#precision::-webkit-slider-thumb {
+    background: var(--secondary-color);
+    box-shadow: 0 4px 8px rgba(232, 62, 140, 0.5);
+}
+
+#precision::-webkit-slider-thumb:hover {
+    background: #c91f6e;
+}
+
+/* Colored tracks for active feel? 
+   Let's keep track neutral to let thumb pop, or add a fill?
+   Webkit doesn't support fill-lower easy without JS or complex CSS.
+   Distinct grey is "clearly visible".
+*/
+
+.info-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+    padding-top: 2rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.info-card {
+    background: rgba(255, 255, 255, 0.6);
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.info-card h3 {
+    margin: 0 0 0.5rem 0;
+    color: var(--primary-color);
+    font-size: 1.1rem;
+}
+
+.info-card p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+footer {
+    margin-top: 2rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 50px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.developer-name {
+    color: var(--secondary-color);
+    font-weight: 700;
+}
+
+@media (max-width: 768px) {
+    h1 {
+        font-size: 1.8rem;
+    }
+
+    .glass-panel {
+        padding: 1.5rem;
+    }
+
+    .visualization-container {
+        flex-direction: column;
+    }
+
+    .metric .value {
+        font-size: 4rem;
+    }
+
+    .visual-representation {
+        width: 100%;
+        height: 180px;
+    }
+}

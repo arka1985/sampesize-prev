@@ -4,6 +4,7 @@ const precisionSlider = document.getElementById('precision');
 const pValDisplay = document.getElementById('p-val');
 const dValDisplay = document.getElementById('d-val');
 const nValueDisplay = document.getElementById('n-value');
+const dynamicParamsDisplay = document.getElementById('dynamic-params');
 const bgCanvas = document.getElementById('bg-canvas');
 const sampleCanvas = document.getElementById('sample-canvas');
 
@@ -88,6 +89,10 @@ function updateCalculation() {
 
     // Update Display
     nValueDisplay.textContent = n.toLocaleString();
+
+    // Update Dynamic Parameters Display
+    // Format: P = 0.50  Q = 0.50  D = 0.05
+    dynamicParamsDisplay.textContent = `P = ${P.toFixed(2)}  Q = ${Q.toFixed(2)}  D = ${D.toFixed(2)}`;
 }
 
 // Particle System (Background only)

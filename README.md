@@ -1,32 +1,45 @@
-# Sample Size Calculator for Prevalence Studies
+# Visual Understanding of Sample Size Calculation for Common Epidemiological Studies
 
-A visually stunning, scientifically accurate, and interactive web application for calculating sample sizes in prevalence studies.
+A comprehensive, interactive web application designed to help researchers, students, and epidemiologists visualize and understand sample size calculations for various study designs.
 
-## 🌟 Features
+## Features
 
-*   **Scientific Precision**: Uses the standard formula $N = 4PQ/D^2$ for calculating sample size with 95% confidence.
-*   **Dynamic Visualization**:
-    *   **Sample Size Curve**: An interactive graph showing how sample size ($N$) changes with prevalence ($P$).
-    *   **Incremental Feedback**: A glowing indicator moves along the curve as you adjust parameters.
-    *   **High-Contrast Sliders**: Large, vibrant controls designed for visibility and ease of use.
-*   **Premium UI**:
-    *   **Glassmorphism**: Modern frosted glass panels.
-    *   **Animated Background**: Soothing, floating gradient blobs.
-    *   **Light Theme**: Clean white background with professional Blue and Pink accents.
+### 1. Multi-Study Design Support
+Switch instantly between four major epidemiological study types:
+*   **Prevalence Study (Cross-Sectional)**: Calculate sample size for estimating population prevalence.
+*   **Case-Control Study**: Determine sample size based on Odds Ratio (OR) and exposure in controls.
+*   **Cohort Study**: Calculate sample size based on Risk Ratio (RR) and incidence in unexposed group.
+*   **Randomized Controlled Trial (RCT)**: Plan trials comparing binary outcomes between two groups.
 
-## 🚀 How to Use
+### 2. Interactive Calculation & Visualization
+*   **Dynamic Inputs**: Sliders and input fields update the calculation in real-time.
+*   **Visual Feedback**:
+    *   **Prevalence Curve**: See how sample size changes with Prevalence (P) and Precision (D). Features auto-scaling Y-axis.
+    *   **Population Grid (Dot Matrix)**: A 1:1 visual representation of participants for Case-Control, Cohort, and RCT studies. See exactly how many Control vs. Case subjects you need.
+    *   **Color-Coded Groups**: Distinct colors (Green for Control/Group 1, Pink for Case/Group 2) for immediate clarity.
 
-1.  **Prevalence (P)**: Use the slider to set the expected proportion of the disease/condition (0-100%).
-2.  **Precision (D)**: Adjust the acceptable error margin (1-20%).
-3.  **Result**: The required sample size ($N$) is calculated instantly and displayed.
+### 3. Transparent Methodology
+*   **Formula Display**: The tool displays the actual mathematical formula used for the current mode.
+*   **Step-by-Step Logic**: A dedicated "Formula Steps" panel explains every variable in the equation.
+*   **Dynamic Parameters**: See the exact values being plugged into the formula, including statistical constants like:
+    *   **Z<sub>&alpha;/2</sub>** (Confidence Level, e.g., 1.96 for 95%)
+    *   **Z<sub>&beta;</sub>** (Power, e.g., 0.84 for 80%)
 
-## 🛠️ Technology
+### 4. Advanced Options
+*   **Finite Population Correction (FPC)**: Toggle Cochran's correction for small populations in prevalence studies.
+*   **Confidence Level Selection**: Adjust alpha (90%, 95%, 99%) for comparative studies.
+*   **Dropout Correction**: Toggle to automatically add a 10% buffer for non-response ($N / 0.9$).
+*   **Control/Case Ratio**: Adjust the ratio of controls to cases (e.g., 1:1, 2:1) to see the impact on total sample size.
 
-*   **HTML5**: Semantic structure.
-*   **CSS3**: Advanced animations, glassmorphism, and responsive design.
-*   **Vanilla JavaScript**: Efficient, dependency-free logic and Canvas API visualizations.
+## Usage
 
-## 👨‍⚕️ Developer
+1.  **Select Study Design**: Use the dropdown menu at the top.
+2.  **Adjust Parameters**: Use the sliders to change Prevalence, Power, Odds Ratio, etc.
+3.  **Visual Confirmation**: Watch the "Population Grid" or "Prevalence Curve" update instantly.
+4.  **Review Steps**: Check the "Formula Steps" and "Interpretation" cards to understand the *why* behind the number.
 
-**Dr. Arkaprabha Sau**
-MBBS, MD (Gold Medalist), DPH, Dip. Geriatric Medicine, CCEBDM, PhD (Computer Science & Engineering)
+## Developer
+
+**Developed By**
+Dr. Arkaprabha Sau, MBBS, MD (Gold Medalist), DPH, Dip. Geriatric Medicine, CCEBDM
+PhD (Computer Science & Engineering)

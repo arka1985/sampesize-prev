@@ -227,10 +227,12 @@ h1 {
 
 .visual-representation {
     flex: 1;
-    height: 250px;
-    /* Taller for curve */
+    height: 280px;
+    /* Increased slightly for legend */
     position: relative;
     display: flex;
+    flex-direction: column;
+    /* Stack canvas and legend */
     justify-content: center;
     align-items: center;
     border-radius: 16px;
@@ -238,6 +240,17 @@ h1 {
     /* Transparent white */
     box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.5);
+    padding: 10px;
+}
+
+.visual-legend {
+    width: 100%;
+    text-align: center;
+    color: #777;
+    font-size: 14px;
+    font-style: italic;
+    margin-top: 5px;
+    min-height: 20px;
 }
 
 #sample-canvas {
@@ -460,4 +473,193 @@ footer {
         width: 100%;
         height: 180px;
     }
+}
+
+/* New Styles for Study Selector */
+.study-selector-container {
+    margin-top: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    background: rgba(255, 255, 255, 0.4);
+    padding: 0.5rem 1rem;
+    border-radius: 50px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.selector-label {
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.study-dropdown {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    border: 1px solid #bdc3c7;
+    background: rgba(255, 255, 255, 0.9);
+    font-family: var(--font-family);
+    font-size: 1rem;
+    color: var(--text-main);
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.study-dropdown:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+/* Checkbox / Toggle Switch Styles */
+.checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 0.5rem;
+}
+
+.tgl {
+    display: none;
+}
+
+.tgl,
+.tgl:after,
+.tgl:before,
+.tgl *,
+.tgl *:after,
+.tgl *:before,
+.tgl+.tgl-btn {
+    box-sizing: border-box;
+}
+
+.tgl::-moz-selection,
+.tgl:after::-moz-selection,
+.tgl:before::-moz-selection,
+.tgl *::-moz-selection,
+.tgl *:after::-moz-selection,
+.tgl *:before::-moz-selection,
+.tgl+.tgl-btn::-moz-selection {
+    background: none;
+}
+
+.tgl::selection,
+.tgl:after::selection,
+.tgl:before::selection,
+.tgl *::selection,
+.tgl *:after::selection,
+.tgl *:before::selection,
+.tgl+.tgl-btn::selection {
+    background: none;
+}
+
+.tgl+.tgl-btn {
+    outline: 0;
+    display: block;
+    width: 44px;
+    height: 24px;
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+}
+
+.tgl+.tgl-btn:after,
+.tgl+.tgl-btn:before {
+    position: relative;
+    display: block;
+    content: "";
+    width: 50%;
+    height: 100%;
+}
+
+.tgl+.tgl-btn:after {
+    left: 0;
+}
+
+.tgl+.tgl-btn:before {
+    display: none;
+}
+
+.tgl:checked+.tgl-btn:after {
+    left: 50%;
+}
+
+.tgl-ios+.tgl-btn {
+    background: #fbfbfb;
+    border-radius: 2em;
+    padding: 2px;
+    transition: all .4s ease;
+    border: 1px solid #e8eae9;
+}
+
+.tgl-ios+.tgl-btn:after {
+    border-radius: 2em;
+    background: #fbfbfb;
+    transition: left 0.3s cubic-bezier(0.175, 0.885, 0.320, 1.275), padding 0.3s ease, margin 0.3s ease;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 4px 0 rgba(0, 0, 0, 0.08);
+}
+
+.tgl-ios+.tgl-btn:active {
+    box-shadow: inset 0 0 0 2em #e8eae9;
+}
+
+.tgl-ios+.tgl-btn:active:after {
+    padding-right: .8em;
+}
+
+.tgl-ios:checked+.tgl-btn {
+    background: var(--primary-color);
+}
+
+.tgl-ios:checked+.tgl-btn:active {
+    box-shadow: none;
+}
+
+.tgl-ios:checked+.tgl-btn:active:after {
+    margin-left: -.8em;
+}
+
+/* Number Input Styling */
+input[type="number"] {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-family: var(--font-family);
+    font-size: 1rem;
+    background: rgba(255, 255, 255, 0.8);
+    margin-top: 0.5rem;
+}
+
+input[type="number"]:focus {
+    border-color: var(--primary-color);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+/* Footer */
+footer {
+    text-align: center;
+    padding: 2rem;
+    margin-top: 2rem;
+    font-size: 0.95rem;
+    background: rgba(255, 255, 255, 0.4);
+    border-top: 1px solid rgba(255, 255, 255, 0.5);
+    width: 100%;
+}
+
+.footer-line {
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.blue-text {
+    color: var(--primary-color);
+    font-size: 1.1rem;
+    /* Slightly larger for 'Developed By' */
+}
+
+.pink-text {
+    color: var(--secondary-color);
 }

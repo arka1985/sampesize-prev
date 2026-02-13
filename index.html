@@ -22,7 +22,17 @@
   <div id="app">
     <header>
       <h1>Sample Size Calculator</h1>
-      <p class="subtitle">For Prevalence Epidemiological Studies</p>
+      <p class="subtitle">Visual Understanding of Sample Size Calculation for Common Epidemiological Studies</p>
+
+      <div class="study-selector-container">
+        <label for="study-type" class="selector-label">Select Study Design:</label>
+        <select id="study-type" class="study-dropdown">
+          <option value="prevalence">Prevalence Study (Cross-Sectional)</option>
+          <option value="case-control">Case-Control Study</option>
+          <option value="cohort">Cohort Study</option>
+          <option value="rct">Randomized Controlled Trial (RCT)</option>
+        </select>
+      </div>
     </header>
 
     <main class="glass-panel">
@@ -30,55 +40,41 @@
         <div class="metric">
           <span class="label">Sample Size (N)</span>
           <span class="value" id="n-value">0</span>
-          <span class="formula-display">N = 4PQ / D²</span>
+          <span class="formula-display" id="formula-display">N = 4PQ / D²</span>
           <div id="dynamic-params" class="dynamic-params">P = 0.50 Q = 0.50 D = 0.05</div>
         </div>
         <div class="visual-representation">
           <!-- Canvas for specific visual feedback if needed, distinct from bg -->
           <canvas id="sample-canvas"></canvas>
+          <div id="visual-legend" class="visual-legend"></div>
         </div>
       </div>
 
-      <div class="controls-container">
-        <div class="control-group">
-          <label for="prevalence">Prevalence (P): <span id="p-val">50%</span></label>
-          <p class="description-text">
-            The "P" represents the expected prevalence (proportion) of the disease or condition in the population
-            (0-100%).
-          </p>
-          <input type="range" id="prevalence" min="1" max="99" value="50" class="slider">
-        </div>
-
-        <div class="control-group">
-          <label for="precision">Precision (D): <span id="d-val">5%</span></label>
-          <p class="description-text">
-            The "D" is the absolute error or precision you are willing to accept (typically 5%). Smaller D means higher
-            precision but requires larger N.
-          </p>
-          <input type="range" id="precision" min="1" max="20" value="5" class="slider">
-        </div>
+      <div id="controls-container" class="controls-container">
+        <!-- Dynamic inputs will be injected here by script.js -->
       </div>
 
       <div class="info-section">
         <div class="info-card">
           <h3>Formula Steps</h3>
-          <p>1. <strong>N</strong> = Sample Size</p>
-          <p>2. <strong>P</strong> = Prevalence (as decimal)</p>
-          <p>3. <strong>Q</strong> = 1 - P</p>
-          <p>4. <strong>D</strong> = Precision (as decimal)</p>
-          <p>5. <strong>4</strong> = Constant for 95% Confidence (approx 1.96² ≈ 4)</p>
+          <div id="formula-steps-content">
+            <!-- Dynamic Content -->
+          </div>
         </div>
         <div class="info-card">
           <h3>Interpretation</h3>
-          <p>This formula determines the minimum number of participants needed to estimate a population prevalence with
-            a specified level of precision and confidence.</p>
+          <div id="interpretation-content">
+            <!-- Dynamic Content -->
+          </div>
         </div>
       </div>
     </main>
 
     <footer>
-      Developed by <span class="developer-name">Dr. Arkaprabha Sau, MBBS, MD (Gold Medalist), DPH, Dip. Geriatric
-        Medicine, CCEBDM, PhD (Computer Science & Engineering)</span>
+      <div class="footer-line blue-text">Developed By</div>
+      <div class="footer-line pink-text">Dr. Arkaprabha Sau, MBBS, MD (Gold Medalist), DPH, Dip. Geriatric Medicine,
+        CCEBDM</div>
+      <div class="footer-line pink-text">PhD (Computer Science & Engineering)</div>
     </footer>
   </div>
   <script src="script.js"></script>

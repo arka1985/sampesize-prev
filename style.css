@@ -585,8 +585,11 @@ footer {
 .checkbox-wrapper {
     display: flex;
     align-items: center;
+    /* or flex-start if label is multiline */
     gap: 0.8rem;
     margin-bottom: 0.5rem;
+    justify-content: space-between;
+    /* Put toggle on right? or keep left? Standard is usually left or right. User didn't specify, but preventing shrink is key. */
 }
 
 .tgl {
@@ -631,6 +634,8 @@ footer {
     position: relative;
     cursor: pointer;
     user-select: none;
+    flex-shrink: 0;
+    /* Critical: Prevent compression */
 }
 
 .tgl+.tgl-btn:after,

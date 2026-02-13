@@ -306,13 +306,10 @@ function init() {
             sampleCanvas.height = rect.height;
         }
         // Resize Observer for Sample Canvas
+        // Resize Observer for Sample Canvas
         const observer = new ResizeObserver(() => {
-            if (sampleCanvas.parentElement) {
-                const r = sampleCanvas.parentElement.getBoundingClientRect();
-                sampleCanvas.width = r.width;
-                sampleCanvas.height = r.height;
-                loop(); // force redraw
-            }
+            resizeSampleCanvas();
+            loop();
         });
         if (sampleCanvas.parentElement) observer.observe(sampleCanvas.parentElement);
     }
@@ -330,11 +327,8 @@ function init() {
         width = window.innerWidth;
         height = window.innerHeight;
         if (bgCanvas) resizeCanvas(bgCanvas);
-        if (sampleCanvas && sampleCanvas.parentElement) {
-            const rect = sampleCanvas.parentElement.getBoundingClientRect();
-            sampleCanvas.width = rect.width;
-            sampleCanvas.height = rect.height;
-        }
+        if (bgCanvas) resizeCanvas(bgCanvas);
+        resizeSampleCanvas();
         initBgParticles();
     });
 
@@ -345,6 +339,27 @@ function init() {
 function resizeCanvas(canvas) {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+}
+
+function resizeSampleCanvas() {
+    if (sampleCanvas && sampleCanvas.parentElement) {
+        const rect = sampleCanvas.parentElement.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+
+        // Physical size
+        sampleCanvas.width = rect.width * dpr;
+        sampleCanvas.height = rect.height * dpr;
+
+        // Logical size for drawing
+        sampleCanvas.logicalWidth = rect.width;
+        sampleCanvas.logicalHeight = rect.height;
+
+        // Scale context
+        if (sampleCtx) {
+            sampleCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset
+            sampleCtx.scale(dpr, dpr);
+        }
+    }
 }
 
 function setupMode(mode) {
@@ -537,11 +552,15 @@ function loop() {
         sampleCtx.clearRect(0, 0, sampleCanvas.width, sampleCanvas.height);
 
         // Visualization Logic
+        // Visualization Logic
+        const w = sampleCanvas.logicalWidth || sampleCanvas.width;
+        const h = sampleCanvas.logicalHeight || sampleCanvas.height;
+
         if (currentMode === 'prevalence') {
-            drawPrevalenceCurve(sampleCtx, sampleCanvas.width, sampleCanvas.height);
+            drawPrevalenceCurve(sampleCtx, w, h);
         } else if (currentVisualData) {
             // Draw SCALED Population Grids
-            drawPopulationGrid(sampleCtx, sampleCanvas.width, sampleCanvas.height, currentVisualData);
+            drawPopulationGrid(sampleCtx, w, h, currentVisualData);
         }
     }
     requestAnimationFrame(loop);

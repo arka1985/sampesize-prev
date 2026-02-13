@@ -44,6 +44,57 @@ function getZAlpha(c) {
     return 2.576;             // 99%
 }
 
+// --- Advanced Sample Size Helpers ---
+function calculateAdvanced(p1, p2, ratio, alpha, beta, dropout) {
+    const r = parseFloat(ratio) || 1;
+    const za = getZAlpha((1 - alpha) * 100);
+    const zb = getZBeta((1 - beta) * 100);
+
+    const p_avg = (p1 + r * p2) / (1 + r);
+    const p1_q1 = p1 * (1 - p1);
+    const p2_q2 = p2 * (1 - p2);
+    const p_avg_q_avg = p_avg * (1 - p_avg);
+
+    // KELSEY
+    // N_exposed = ((Za + Zb)^2 * P_avg * (1-P_avg) * (r+1)) / (r * (P1-P2)^2)
+    // Note: Some sources use slightly different variance terms, but this is the standard Kelsey approximation.
+    // However, OpenEpi uses:
+    // n1 = ( (Za+Zb)^2 * p_avg * (1-p_avg) * (r+1) ) / ( r * (p1-p2)^2 )
+    const kelsey_num = Math.pow(za + zb, 2) * p_avg_q_avg * (r + 1);
+    const kelsey_den = r * Math.pow(p1 - p2, 2);
+    let n1_kelsey = Math.ceil(kelsey_num / kelsey_den);
+
+    // FLEISS
+    // OpenEpi / Fleiss with Levin's modification
+    // n1 = ( Za * sqrt((r+1) * p_avg * (1-p_avg)) + Zb * sqrt(r * p1 * (1-p1) + p2 * (1-p2)) )^2 / (r * (p1-p2)^2)
+    const term1 = za * Math.sqrt((r + 1) * p_avg_q_avg);
+    const term2 = zb * Math.sqrt((r * p1_q1) + p2_q2);
+    const fleiss_num = Math.pow(term1 + term2, 2);
+    const fleiss_den = r * Math.pow(p1 - p2, 2);
+    let n1_fleiss = Math.ceil(fleiss_num / fleiss_den);
+
+    // FLEISS WITH CONTINUITY CORRECTION (CC)
+    // Non-iterative approximation
+    // n1_cc = (n1_fleiss / 4) * (1 + sqrt(1 + (2*(r+1)) / (n1_fleiss * r * |p1-p2|)))^2
+    const n1_uncorrected = fleiss_num / fleiss_den; // Using unrounded for intermediate step
+    const cc_term = 2 * (r + 1) / (n1_uncorrected * r * Math.abs(p1 - p2));
+    const n1_cc = (n1_uncorrected / 4) * Math.pow(1 + Math.sqrt(1 + cc_term), 2);
+    let n1_fleiss_cc = Math.ceil(n1_cc);
+
+    // Apply Dropout
+    if (dropout) {
+        n1_kelsey = Math.ceil(n1_kelsey / 0.9);
+        n1_fleiss = Math.ceil(n1_fleiss / 0.9);
+        n1_fleiss_cc = Math.ceil(n1_fleiss_cc / 0.9);
+    }
+
+    return {
+        kelsey: { n1: n1_kelsey, n2: Math.ceil(n1_kelsey * r), total: n1_kelsey + Math.ceil(n1_kelsey * r) },
+        fleiss: { n1: n1_fleiss, n2: Math.ceil(n1_fleiss * r), total: n1_fleiss + Math.ceil(n1_fleiss * r) },
+        fleiss_cc: { n1: n1_fleiss_cc, n2: Math.ceil(n1_fleiss_cc * r), total: n1_fleiss_cc + Math.ceil(n1_fleiss_cc * r) }
+    };
+}
+
 // Mode Configurations
 const MODES = {
     'prevalence': {
@@ -54,7 +105,7 @@ const MODES = {
             { id: 'dropout', label: 'Add 10% for Non-response?', type: 'checkbox', val: false, desc: 'Increases sample size to account for 10% dropout (N / 0.9).' },
             { id: 'popSize', label: 'Population Size (N)', type: 'number', val: 1000, desc: 'Total population size.', hidden: true }
         ],
-        formulaStr: 'N = 4PQ / D²',
+        formulaStr: 'N = 4PQ / D<sup>2</sup>',
         formulaSteps: `
             <p>1. <strong>N</strong> = Sample Size</p>
             <p>2. <strong>P</strong> = Prevalence (as decimal)</p>
@@ -93,37 +144,54 @@ const MODES = {
     },
     'case-control': {
         inputs: [
-            { id: 'p_controls', label: '% Exposed in Controls', type: 'range', min: 1, max: 99, val: 30, desc: 'Proportion of controls exposed to the risk factor.' },
+            { id: 'p_controls', label: '% Exposed in Controls', type: 'range', min: 0.1, max: 99.9, step: 0.1, val: 30, desc: 'Proportion of controls exposed to the risk factor.' },
             { id: 'or', label: 'Odds Ratio (OR)', type: 'number', val: 2.0, desc: 'Minimum odds ratio you want to detect.' },
             { id: 'power', label: 'Power (%)', type: 'range', min: 80, max: 99, val: 80, desc: 'Probability of detecting a true effect (usually 80%).' },
             { id: 'confidence', label: 'Confidence Level (%)', type: 'range', min: 90, max: 99, val: 95, desc: '1 - Alpha (usually 95%).' },
-            { id: 'ratio', label: 'Control to Case Ratio', type: 'number', val: 1, desc: 'Number of controls per case (usually 1).' },
+            { id: 'ratio', label: 'Control to Case Ratio (r)', type: 'number', val: 1, desc: 'Number of controls per case (usually 1).' },
             { id: 'dropout', label: 'Add 10% for Non-response?', type: 'checkbox', val: false, desc: 'Increases sample size to account for 10% dropout.' }
         ],
-        formulaStr: 'N = (Zα/2 + Zβ)² P(1-P)(r+1) / r(P₁-P₂)²',
+        formulaStr: `
+            <div style="font-size:0.9em; line-height:1.4">
+                <strong>Kelsey Formula (Main):</strong><br>
+                N<sub>1</sub> = (Z<sub>α/2</sub>+Z<sub>β</sub>)<sup>2</sup> P(1-P)(r+1) / [r(P<sub>1</sub>-P<sub>2</sub>)<sup>2</sup>]<br>
+                <div style="font-size:0.8em; margin-top:5px; opacity:0.8">
+                    (See Interpretation regarding Fleiss & Fleiss CC methods)
+                </div>
+            </div>
+        `,
         formulaSteps: `
-            <p>1. <strong>P<sub>0</sub></strong> = Proportion exposed in controls</p>
-            <p>2. <strong>P<sub>1</sub></strong> = Proportion exposed in cases (calculated from OR)</p>
-            <p>3. <strong>Z<sub>&alpha;/2</sub></strong> = 1.96 (std. normal for &alpha;=5%)</p>
-            <p>4. <strong>Z<sub>&beta;</sub></strong> = 0.84 (std. normal for &beta;=20%)</p>
-            <p>5. Calculates <strong>N<sub>cases</sub></strong> and applies ratio.</p>
+            <p><strong>P<sub>1</sub></strong> = % Exposed in Cases (Calculated from OR)</p>
+            <p><strong>P<sub>2</sub></strong> = % Exposed in Controls (User Input)</p>
+            <p><strong>r</strong> = Ratio (Controls / Cases)</p>
+            <p>Calculates Sample Size using:</p>
+            <ul>
+                <li><strong>Kelsey</strong>: Standard approximation</li>
+                <li><strong>Fleiss</strong>: With Levin's modification</li>
+                <li><strong>Fleiss CC</strong>: With Continuity Correction</li>
+            </ul>
         `,
         interpretation: `
-            <p>Calculates the number of Cases and Controls required to detect a specific Odds Ratio with a given Power. Essential for retrospective studies where you recruit based on outcome status.</p>
-            <p><em>Method: Kelsey / Fleiss with unpooled variance estimate.</em></p>
+            <p>Comparative sample sizes for Case-Control studies. Essential for retrospective studies recruited based on outcome.</p>
+            <div style="font-size:0.85em; margin-top:10px; border-top:1px solid rgba(255,255,255,0.2); padding-top:5px;">
+                <strong>Formulas Used:</strong><br>
+                <strong>Kelsey:</strong> N<sub>1</sub> = (Z<sub>α/2</sub>+Z<sub>β</sub>)<sup>2</sup> P(1-P)(r+1) / [r(P<sub>1</sub>-P<sub>2</sub>)<sup>2</sup>]<br>
+                <strong>Fleiss:</strong> N<sub>1</sub> = [Z<sub>α/2</sub>&radic;((r+1)P(1-P)) + Z<sub>β</sub>&radic;(rP<sub>1</sub>(1-P<sub>1</sub>)+P<sub>2</sub>(1-P<sub>2</sub>))]<sup>2</sup> / [r(P<sub>1</sub>-P<sub>2</sub>)<sup>2</sup>]<br>
+                *N<sub>Fleiss,CC</sub> applies continuity correction to N<sub>Fleiss</sub>
+            </div>
         `,
         calc: (state) => {
-            const P0 = state.p_controls / 100;
+            const P0 = parseFloat(state.p_controls) / 100;
             const OR = parseFloat(state.or);
             const r = parseFloat(state.ratio) || 1;
             const power = parseInt(state.power);
             const conf = parseInt(state.confidence) || 95;
-            const Z_beta = getZBeta(power);
-            const Z_alpha_curr = getZAlpha(conf);
+            const alpha = (100 - conf) / 100;
+            const beta = (100 - power) / 100;
 
             // Floating point safety for OR=1
             if (Math.abs(OR - 1) < 0.001) {
-                return { n: 0, display: 'OR=1 implies no effect. N is infinite.', visualData: null };
+                return { n: 0, display: 'OR=1 implies no effect. N is infinite.', table: null };
             }
 
             // Calc P1 (Percent Exposed in Cases) based on OR
@@ -131,30 +199,33 @@ const MODES = {
 
             // Safety Cap for P1
             if (P1 > 0.999) {
-                return { n: 'Error', display: 'Impossible inputs: P1 > 100%. Lower Baseline or OR.', visualData: null };
+                return { n: 'Error', display: 'Impossible inputs: P1 > 100%. Lower Baseline or OR.', table: null };
             }
 
-            const P_avg = (P1 + r * P0) / (1 + r);
+            // Case-Control Mapping for calculateAdvanced(p1, p2, r...)
+            // Standard Formula typically:
+            // n1 = number of CASES
+            // n2 = number of CONTROLS = r * n1
+            // p1 = Proportion exposed in CASES
+            // p2 = Proportion exposed in CONTROLS
+            //
+            // calculateAdvanced(p1, p2, ratio...)
+            // Returns { n1, n2 ... } where n2 = n1*ratio.
+            // So if we pass p1=P_cases, p2=P_controls, ratio=Controls/Cases
+            // Then n1 = Cases, n2 = Controls.
 
-            const num = Math.pow(Z_alpha_curr * Math.sqrt((1 + 1 / r) * P_avg * (1 - P_avg)) + Z_beta * Math.sqrt(P1 * (1 - P1) + (P0 * (1 - P0) / r)), 2);
-            const den = Math.pow(P1 - P0, 2);
+            const results = calculateAdvanced(P1, P0, r, alpha, beta, state.dropout);
 
-            let n_cases = Math.ceil(num / den);
-            // Dropout
-            if (state.dropout) n_cases = Math.ceil(n_cases / 0.9);
-
-            const n_controls = Math.ceil(n_cases * r);
-            const n_total = n_cases + n_controls;
-
-            let displayStr = `P_controls=${P0.toFixed(2)} OR=${OR} Power=${power}% Conf=${conf}% Z_{\u03B1/2}=${Z_alpha_curr} Z_{\u03B2}=${Z_beta}`;
+            let displayStr = `P_cases=${(P1 * 100).toFixed(2)}% P_controls=${(P0 * 100).toFixed(2)}% OR=${OR}`;
             if (state.dropout) displayStr += " (Incl. 10% Dropout)";
 
             return {
-                n: n_total,
+                n: results.fleiss.total,
                 display: displayStr,
+                table: results,
                 visualData: {
-                    n1: n_controls,
-                    n2: n_cases,
+                    n1: results.fleiss.n2, // Controls (Group 2 in helper)
+                    n2: results.fleiss.n1, // Cases (Group 1 in helper)
                     label1: 'Controls',
                     label2: 'Cases'
                 }
@@ -163,62 +234,72 @@ const MODES = {
     },
     'cohort': {
         inputs: [
-            { id: 'p_unexposed', label: '% Incidence in Unexposed', type: 'range', min: 1, max: 99, val: 10, desc: 'Baseline risk/incidence in the unexposed group.' },
-            { id: 'rr', label: 'Risk Ratio (RR)', type: 'number', val: 2.0, desc: 'Relative risk you want to detect.' },
+            { id: 'p_unexposed', label: '% Unexposed with Outcome', type: 'range', min: 0.1, max: 99.9, step: 0.1, val: 5, desc: 'Baseline risk in unexposed group (P2).' },
+            { id: 'p_exposed', label: '% Exposed with Outcome', type: 'range', min: 0.1, max: 99.9, step: 0.1, val: 9.5, desc: 'Risk in exposed group (P1).' },
             { id: 'power', label: 'Power (%)', type: 'range', min: 80, max: 99, val: 80, desc: 'Probability of detecting a true effect.' },
             { id: 'confidence', label: 'Confidence Level (%)', type: 'range', min: 90, max: 99, val: 95, desc: '1 - Alpha (usually 95%).' },
-            { id: 'ratio', label: 'Unexposed to Exposed Ratio', type: 'number', val: 1, desc: 'Number of unexposed per exposed (usually 1).' },
+            { id: 'ratio', label: 'Unexposed to Exposed Ratio (r)', type: 'number', val: 1, desc: 'Number of unexposed per exposed (usually 1).' },
             { id: 'dropout', label: 'Add 10% for Non-response?', type: 'checkbox', val: false, desc: 'Increases sample size to account for 10% dropout.' }
         ],
-        formulaStr: 'N = (Zα/2 + Zβ)² [P₁(1-P₁) + P₂(1-P₂)] / (P₁-P₂)²',
+        formulaStr: `
+            <div style="font-size:0.9em; line-height:1.4">
+                <strong>Kelsey Formula (Main):</strong><br>
+                N<sub>1</sub> = (Z<sub>α/2</sub>+Z<sub>β</sub>)<sup>2</sup> P(1-P)(r+1) / [r(P<sub>1</sub>-P<sub>2</sub>)<sup>2</sup>]<br>
+                <div style="font-size:0.8em; margin-top:5px; opacity:0.8">
+                    (See Interpretation regarding Fleiss & Fleiss CC methods)
+                </div>
+            </div>
+        `,
         formulaSteps: `
-            <p>1. <strong>P<sub>0</sub></strong> = Incidence in Unexposed</p>
-            <p>2. <strong>P<sub>1</sub></strong> = Incidence in Exposed (P<sub>0</sub> * RR)</p>
-            <p>3. <strong>Z<sub>&alpha;/2</sub></strong> = 1.96 (std. normal for &alpha;=5%)</p>
-            <p>4. <strong>Z<sub>&beta;</sub></strong> = 0.84 (std. normal for &beta;=20%)</p>
-            <p>5. Calculates sample size to detect difference (P<sub>1</sub> - P<sub>0</sub>)</p>
+            <p><strong>P<sub>1</sub></strong> = % Exposed with Outcome</p>
+            <p><strong>P<sub>2</sub></strong> = % Unexposed with Outcome</p>
+            <p><strong>r</strong> = Ratio (Unexposed / Exposed)</p>
+            <p>Calculates Sample Size using:</p>
+            <ul>
+                <li><strong>Kelsey</strong>: Standard approximation</li>
+                <li><strong>Fleiss</strong>: With Levin's modification</li>
+                <li><strong>Fleiss CC</strong>: With Continuity Correction</li>
+            </ul>
         `,
         interpretation: `
-            <p>Determines the number of exposed and unexposed subjects needed to detect a specific Risk Ratio (Relative Risk) over the study period.</p>
-            <p><em>Method: Two-sample proportion test (unpooled variance).</em></p>
+            <p>Provides comparative sample sizes using three common methods. Fleiss with Continuity Correction is the most conservative (largest sample size).</p>
+            <div style="font-size:0.85em; margin-top:10px; border-top:1px solid rgba(255,255,255,0.2); padding-top:5px;">
+                <strong>Formulas Used:</strong><br>
+                <strong>Kelsey:</strong> N<sub>1</sub> = (Z<sub>α/2</sub>+Z<sub>β</sub>)<sup>2</sup> P(1-P)(r+1) / [r(P<sub>1</sub>-P<sub>2</sub>)<sup>2</sup>]<br>
+                <strong>Fleiss:</strong> N<sub>1</sub> = [Z<sub>α/2</sub>&radic;((r+1)P(1-P)) + Z<sub>β</sub>&radic;(rP<sub>1</sub>(1-P<sub>1</sub>)+P<sub>2</sub>(1-P<sub>2</sub>))]<sup>2</sup> / [r(P<sub>1</sub>-P<sub>2</sub>)<sup>2</sup>]<br>
+                *N<sub>Fleiss,CC</sub> applies continuity correction to N<sub>Fleiss</sub>
+            </div>
         `,
         calc: (state) => {
-            const P0 = state.p_unexposed / 100;
-            const RR = parseFloat(state.rr);
+            const P2 = parseFloat(state.p_unexposed) / 100; // Unexposed
+            const P1 = parseFloat(state.p_exposed) / 100;   // Exposed
+
+            // Auto-calculate RR/OR etc for display if needed, but primarily we use the raw proportions
+            const RR = (P2 > 0) ? (P1 / P2) : 0;
+            const RD = (P1 - P2) * 100;
+
             const r = parseFloat(state.ratio) || 1;
             const power = parseInt(state.power);
             const conf = parseInt(state.confidence) || 95;
-            const Z_beta = getZBeta(power);
-            const Z_alpha_curr = getZAlpha(conf);
+            const alpha = (100 - conf) / 100;
+            const beta = (100 - power) / 100;
 
-            // Floating point safety for RR=1
-            if (Math.abs(RR - 1) < 0.001) {
-                return { n: 0, display: 'RR=1 implies no effect. N is infinite.', visualData: null };
+            if (Math.abs(P1 - P2) < 0.0001) {
+                return { n: 'Error', display: 'P1 and P2 cannot be equal.', table: null };
             }
 
-            const P1 = P0 * RR;
-            if (P1 >= 1) return { n: 'Error', display: 'P1 > 100%. Decrease Baseline or Risk Ratio.', visualData: null };
+            const results = calculateAdvanced(P1, P2, r, alpha, beta, state.dropout);
 
-            const P_avg = (P1 + r * P0) / (1 + r);
-            const num = Math.pow(Z_alpha_curr * Math.sqrt((1 + 1 / r) * P_avg * (1 - P_avg)) + Z_beta * Math.sqrt(P1 * (1 - P1) + (P0 * (1 - P0) / r)), 2);
-            const den = Math.pow(P1 - P0, 2);
-
-            let n_exposed = Math.ceil(num / den);
-            // Dropout
-            if (state.dropout) n_exposed = Math.ceil(n_exposed / 0.9);
-
-            const n_unexposed = Math.ceil(n_exposed * r);
-            const n_total = n_exposed + n_unexposed;
-
-            let displayStr = `P0=${P0.toFixed(2)} RR=${RR} Power=${power}% Conf=${conf}% Z_{\u03B1/2}=${Z_alpha_curr} Z_{\u03B2}=${Z_beta}`;
+            let displayStr = `P1=${(P1 * 100).toFixed(2)}% P2=${(P2 * 100).toFixed(2)}% RR=${RR.toFixed(2)} RD=${RD.toFixed(2)}%`;
             if (state.dropout) displayStr += " (Incl. 10% Dropout)";
 
             return {
-                n: n_total,
+                n: results.fleiss.total, // Default to Fleiss for big display
                 display: displayStr,
+                table: results,
                 visualData: {
-                    n1: n_unexposed,
-                    n2: n_exposed,
+                    n1: results.fleiss.n2, // Unexposed (Group 2)
+                    n2: results.fleiss.n1, // Exposed (Group 1)
                     label1: 'Unexposed',
                     label2: 'Exposed'
                 }
@@ -227,55 +308,154 @@ const MODES = {
     },
     'rct': {
         inputs: [
-            { id: 'p1', label: 'Prop. Group 1 (%)', type: 'range', min: 1, max: 99, val: 50, desc: 'Anticipated outcome in Control Group.' },
-            { id: 'p2', label: 'Prop. Group 2 (%)', type: 'range', min: 1, max: 99, val: 40, desc: 'Anticipated outcome in Treatment Group.' },
+            { id: 'p1', label: 'Prop. Group 1 (%)', type: 'range', min: 0.1, max: 99.9, step: 0.1, val: 50, desc: 'Anticipated outcome in Control Group (e.g., Unexposed).' },
+            { id: 'p2', label: 'Prop. Group 2 (%)', type: 'range', min: 0.1, max: 99.9, step: 0.1, val: 40, desc: 'Anticipated outcome in Treatment Group (e.g., Exposed).' },
             { id: 'power', label: 'Power (%)', type: 'range', min: 80, max: 99, val: 80, desc: '' },
             { id: 'confidence', label: 'Confidence Level (%)', type: 'range', min: 90, max: 99, val: 95, desc: '' },
-            { id: 'ratio', label: 'Group Ratio (N1/N2)', type: 'number', val: 1, desc: '' },
+            { id: 'ratio', label: 'Group Ratio (N1/N2) (r)', type: 'number', val: 1, desc: '' },
             { id: 'dropout', label: 'Add 10% for Non-response?', type: 'checkbox', val: false, desc: '' }
         ],
-        formulaStr: 'N = (Zα/2 + Zβ)² [P₁(1-P₁) + P₂(1-P₂)] / (P₁-P₂)²',
+        formulaStr: `
+            <div style="font-size:0.9em; line-height:1.4">
+                <strong>Kelsey Formula (Main):</strong><br>
+                N<sub>1</sub> = (Z<sub>α/2</sub>+Z<sub>β</sub>)<sup>2</sup> P(1-P)(r+1) / [r(P<sub>1</sub>-P<sub>2</sub>)<sup>2</sup>]<br>
+                <div style="font-size:0.8em; margin-top:5px; opacity:0.8">
+                    (See Interpretation regarding Fleiss & Fleiss CC methods)
+                </div>
+            </div>
+        `,
         formulaSteps: `
-            <p>1. <strong>P<sub>1</sub></strong>, <strong>P<sub>2</sub></strong> = Proportions in the two groups</p>
-            <p>2. Uses the pooled proportion to estimate variance under the null hypothesis</p>
-            <p>3. <strong>Z<sub>&alpha;/2</sub></strong> = 1.96 (std. normal for &alpha;=5%)</p>
-            <p>4. <strong>Z<sub>&beta;</sub></strong> = 0.84 (std. normal for &beta;=20%)</p>
-            <p>5. Calculates sample size to detect difference (P<sub>1</sub> - P<sub>2</sub>)</p>
+            <p><strong>P<sub>1</sub></strong> = Prop. Group 1 (Control)</p>
+            <p><strong>P<sub>2</sub></strong> = Prop. Group 2 (Treatment)</p>
+            <p><strong>r</strong> = Ratio (Group 1 / Group 2)</p>
+            <p>Calculates Sample Size using:</p>
+            <ul>
+                <li><strong>Kelsey</strong>: Standard approximation</li>
+                <li><strong>Fleiss</strong>: With Levin's modification</li>
+                <li><strong>Fleiss CC</strong>: With Continuity Correction</li>
+            </ul>
         `,
         interpretation: `
-            <p>Standard calculation for Randomized Controlled Trials comparing binary outcomes (e.g., Cured vs. Not Cured) between two groups.</p>
+            <p>Standard calculation for Randomized Controlled Trials comparing binary outcomes. Fleiss CC is recommended for conservative estimates.</p>
+            <div style="font-size:0.85em; margin-top:10px; border-top:1px solid rgba(255,255,255,0.2); padding-top:5px;">
+                <strong>Formulas Used:</strong><br>
+                <strong>Kelsey:</strong> N<sub>1</sub> = (Z<sub>α/2</sub>+Z<sub>β</sub>)<sup>2</sup> P(1-P)(r+1) / [r(P<sub>1</sub>-P<sub>2</sub>)<sup>2</sup>]<br>
+                <strong>Fleiss:</strong> N<sub>1</sub> = [Z<sub>α/2</sub>&radic;((r+1)P(1-P)) + Z<sub>β</sub>&radic;(rP<sub>1</sub>(1-P<sub>1</sub>)+P<sub>2</sub>(1-P<sub>2</sub>))]<sup>2</sup> / [r(P<sub>1</sub>-P<sub>2</sub>)<sup>2</sup>]<br>
+                *N<sub>Fleiss,CC</sub> applies continuity correction to N<sub>Fleiss</sub>
+            </div>
         `,
         calc: (state) => {
-            const P1 = state.p1 / 100;
-            const P2 = state.p2 / 100;
+            const P1 = parseFloat(state.p1) / 100; // Control / Group 1
+            const P2 = parseFloat(state.p2) / 100; // Treatment / Group 2
             const r = parseFloat(state.ratio) || 1;
             const power = parseInt(state.power);
             const conf = parseInt(state.confidence) || 95;
-            const Z_beta = getZBeta(power);
-            const Z_alpha_curr = getZAlpha(conf);
+            const alpha = (100 - conf) / 100;
+            const beta = (100 - power) / 100;
 
-            const P_avg = (P1 + r * P2) / (1 + r);
-            const num = Math.pow(Z_alpha_curr * Math.sqrt((1 + 1 / r) * P_avg * (1 - P_avg)) + Z_beta * Math.sqrt(P1 * (1 - P1) + (P2 * (1 - P2) / r)), 2);
-            const den = Math.pow(P1 - P2, 2);
+            if (Math.abs(P1 - P2) < 0.0001) {
+                return { n: 'Error', display: 'P1 and P2 cannot be equal.', table: null };
+            }
 
-            if (den === 0) return { n: 'Undefined', display: 'P1 must differ from P2', visualData: null };
+            // We pass P2 (Treatment/Exposed) as p1, and P1 (Control/Unexposed) as p2 to match our helper's logic
+            // Helper assumes p1=Exposed, p2=Unexposed for variance naming, but mathematically symmetric except for r
+            // If r = N1/N2 (Control/Treatment). 
+            // In helper: r = ratio argument. 
+            // Helper logic: p_avg = (p1 + r*p2)/(1+r).
+            // If we want p_avg = (P_treatment + r*P_control)/(1+r)? 
+            // Usually Pooled P = (n1*p1 + n2*p2)/(n1+n2).
+            // = (n1*p1 + (n1/r)*p2) ... no r=n1/n2.
+            // Let's check Cohort r definition: r = Unexposed/Exposed = N_unexposed / N_exposed.
+            // Cohort passed: calcAdvanced(P_exposed, P_unexposed, r).  (p1, p2, r)
+            // Helper p_avg = (p1 + r*p2) / (1+r) = (P_exp + (N_unexp/N_exp)*P_unexp) / (1 + N_unexp/N_exp)
+            // Multiply by N_exp: (N_exp*P_exp + N_unexp*P_unexp) / (N_exp + N_unexp). Correct.
 
-            let n_group2 = Math.ceil(num / den);
-            // Dropout
-            if (state.dropout) n_group2 = Math.ceil(n_group2 / 0.9);
+            // Now RCT: r = N1/N2 = Control/Treatment.
+            // We want (N_control*P_control + N_treat*P_treatment) / Total.
+            // Target: (N1*P1 + N2*P2) / (N1+N2)
+            // If we use helper(p_A, p_B, r):
+            // (p_A + r*p_B)/(1+r)
+            // If r = N1/N2.
+            // = (p_A + (N1/N2)*p_B) / (1 + N1/N2)
+            // Multiply by N2: (N2*p_A + N1*p_B) / (N2 + N1).
+            // So p_B must be P1 (Control), p_A must be P2 (Treatment).
 
-            const n_group1 = Math.ceil(n_group2 * r);
-            const n_total = n_group1 + n_group2;
+            // So: calculateAdvanced(P2, P1, r).
 
-            let displayStr = `P1=${P1.toFixed(2)} P2=${P2.toFixed(2)} Power=${power}% Conf=${conf}% Z_{\u03B1/2}=${Z_alpha_curr} Z_{\u03B2}=${Z_beta}`;
+            const results = calculateAdvanced(P2, P1, r, alpha, beta, state.dropout);
+
+            let displayStr = `P1=${(P1 * 100).toFixed(2)}% P2=${(P2 * 100).toFixed(2)}% Power=${power}% Conf=${conf}%`;
             if (state.dropout) displayStr += " (Incl. 10% Dropout)";
 
             return {
-                n: n_total,
+                n: results.fleiss.total,
+                display: displayStr,
+                table: results,
+                visualData: {
+                    n1: results.fleiss.n2, // n2 in struct is derived from n1*r. n1 was passed as P2 (Treatment). So n1_out is Treatment N.
+                    // n2_out = n1_out * r = Treatment * (Control/Treatment) = Control N.
+                    // So n2 in struct is Control (Group 1).
+                    n2: results.fleiss.n1, // Treatment (Group 2)
+                    label1: 'Group 1',
+                    label2: 'Group 2'
+                }
+            };
+        }
+    },
+    'two-means': {
+        inputs: [
+            { id: 'mean1', label: 'Mean Group 1', type: 'number', val: 132.86, desc: 'Expected mean of Group 1.' },
+            { id: 'sd1', label: 'SD Group 1', type: 'number', val: 15.34, desc: 'Standard Deviation of Group 1.' },
+            { id: 'mean2', label: 'Mean Group 2', type: 'number', val: 127.44, desc: 'Expected mean of Group 2.' },
+            { id: 'sd2', label: 'SD Group 2', type: 'number', val: 18.23, desc: 'Standard Deviation of Group 2.' },
+            { id: 'ratio', label: 'Group Ratio (N2/N1) (r)', type: 'number', val: 1, desc: '' },
+            { id: 'power', label: 'Power (%)', type: 'range', min: 80, max: 99, val: 80, desc: '' },
+            { id: 'confidence', label: 'Confidence Level (%)', type: 'range', min: 90, max: 99, val: 95, desc: '' },
+            { id: 'dropout', label: 'Add 10% for Non-response?', type: 'checkbox', val: false, desc: 'Increases sample size to account for 10% dropout.' }
+        ],
+        formulaStr: `
+            <div style="font-size:0.8em; line-height:1.4">
+                N<sub>1</sub> = (Z<sub>α/2</sub>+Z<sub>β</sub>)<sup>2</sup> (&sigma;<sub>1</sub><sup>2</sup> + &sigma;<sub>2</sub><sup>2</sup>/r) / (&mu;<sub>1</sub>-&mu;<sub>2</sub>)<sup>2</sup><br>
+                N<sub>2</sub> = r * N<sub>1</sub>
+            </div>
+        `,
+        formulaSteps: '', // Will be dynamic
+        interpretation: `
+            <p>Calculates sample size for comparing two independent means (Student's t-test equivalent).</p>
+        `,
+        calc: (state) => {
+            const m1 = parseFloat(state.mean1);
+            const s1 = parseFloat(state.sd1);
+            const m2 = parseFloat(state.mean2);
+            const s2 = parseFloat(state.sd2);
+            const r = parseFloat(state.ratio) || 1;
+            const power = parseInt(state.power);
+            const conf = parseInt(state.confidence) || 95;
+            const alpha = (100 - conf) / 100;
+            const beta = (100 - power) / 100;
+            const za = getZAlpha(conf);
+            const zb = getZBeta(power);
+
+            if (m1 === m2) return { n: 'Error', display: 'Means cannot be equal.', visualData: null };
+
+            const num = Math.pow(za + zb, 2) * (s1 * s1 + (s2 * s2) / r);
+            const den = Math.pow(m1 - m2, 2);
+
+            let n1 = Math.ceil(num / den);
+            if (state.dropout) n1 = Math.ceil(n1 / 0.9);
+
+            let n2 = Math.ceil(n1 * r);
+            let total = n1 + n2;
+
+            let displayStr = `M1=${m1} SD1=${s1} M2=${m2} SD2=${s2} Diff=${(m1 - m2).toFixed(2)}`;
+            if (state.dropout) displayStr += " (Incl. 10% Dropout)";
+
+            return {
+                n: total,
                 display: displayStr,
                 visualData: {
-                    n1: n_group1,
-                    n2: n_group2,
+                    n1: n1, // Group 1
+                    n2: n2, // Group 2
                     label1: 'Group 1',
                     label2: 'Group 2'
                 }
@@ -374,9 +554,9 @@ function setupMode(mode) {
         const config = MODES[mode];
 
         // Update Info Tiles
-        formulaStepsContent.innerHTML = config.formulaSteps;
-        interpretationContent.innerHTML = config.interpretation;
-        formulaDisplay.innerText = config.formulaStr;
+        // For Formula Steps, we now generate it dynamically in calculate(), but we can set a placeholder or static text if needed.
+        // interpretationContent.innerHTML = config.interpretation; // Moved to calculate() to append table
+        formulaDisplay.innerHTML = config.formulaStr;
 
         // Clear Container
         controlsContainer.innerHTML = '';
@@ -496,15 +676,120 @@ function calculate() {
 
         const result = mode.calc(inputsState);
 
-        if (typeof result.n === 'string') {
-            nValueDisplay.textContent = result.n;
-            nValueDisplay.style.fontSize = '3rem';
+        // --- 1. Main Display (Kelsey Priority) ---
+        let mainValue = result.n;
+        let subText = '';
+
+        if (result.table && result.table.kelsey) {
+            mainValue = result.table.kelsey.total;
+            subText = '<div style="font-size:1rem; opacity:0.7">Kelsey Estimate</div>';
+        }
+
+        if (typeof mainValue === 'string') {
+            nValueDisplay.innerHTML = `<span style="font-size:3rem">${mainValue}</span>`;
         } else {
-            nValueDisplay.textContent = result.n.toLocaleString();
-            nValueDisplay.style.fontSize = '5rem';
+            nValueDisplay.innerHTML = `<span style="font-size:5rem">${mainValue.toLocaleString()}</span>${subText}`;
         }
 
         dynamicParamsDisplay.textContent = result.display;
+
+        // --- 2. Dynamic Formula Steps (Input Summary) ---
+        let stepsHTML = '<p><strong>Input Parameters:</strong></p><ul style="list-style:none; padding-left:0; font-size:0.9em;">';
+        // Get current inputs directly from state to ensure we show what user sees
+        const config = MODES[currentMode];
+        config.inputs.forEach(input => {
+            if (!input.hidden) {
+                const val = inputsState[input.id];
+                let label = input.label;
+
+                // Explicit Mapping for P1/P2 based on mode
+                if (currentMode === 'case-control') {
+                    if (input.id === 'p_controls') label = 'P<sub>2</sub> (% Exposed in Controls)';
+                    if (input.id === 'ratio') label = 'r (Control/Case Ratio)';
+                } else if (currentMode === 'cohort') {
+                    if (input.id === 'p_exposed') label = 'P<sub>1</sub> (% Exposed with Outcome)';
+                    if (input.id === 'p_unexposed') label = 'P<sub>2</sub> (% Unexposed with Outcome)';
+                    if (input.id === 'ratio') label = 'r (Unexposed/Exposed Ratio)';
+                } else if (currentMode === 'rct') {
+                    if (input.id === 'p1') label = 'P<sub>1</sub> (Prop. Group 1)'; // Actually typically Control in standard formula
+                    if (input.id === 'p2') label = 'P<sub>2</sub> (Prop. Group 2)';
+                    if (input.id === 'ratio') label = 'r (Group Ratio)';
+                } else if (currentMode === 'two-means') {
+                    if (input.id === 'mean1') label = '&mu;<sub>1</sub> (Mean Group 1)';
+                    if (input.id === 'mean2') label = '&mu;<sub>2</sub> (Mean Group 2)';
+                    if (input.id === 'sd1') label = '&sigma;<sub>1</sub> (SD Group 1)';
+                    if (input.id === 'sd2') label = '&sigma;<sub>2</sub> (SD Group 2)';
+                }
+
+                // Truncate very long labels if not replaced
+                if (label.length > 40) label = label.substring(0, 38) + '..';
+
+                let displayVal = val;
+                if (input.type === 'checkbox') displayVal = val ? 'Yes' : 'No';
+
+                stepsHTML += `<li style="margin-bottom:4px; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between;">
+                    <span style="opacity:0.8">${label}:</span> 
+                    <strong>${displayVal}</strong>
+                 </li>`;
+            }
+        });
+
+        // Add Calculated values if available
+        if (currentMode === 'case-control' && result.display.includes('P_cases')) {
+            // Extract P_cases from display string
+            const pCasesMatch = result.display.match(/P_cases=([\d.]+)%/);
+            if (pCasesMatch) {
+                stepsHTML += `<li style="margin-bottom:4px; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; color:orange;">
+                    <span>P<sub>1</sub> (Calc. % Exposed in Cases):</span> <strong>${pCasesMatch[1]}%</strong>
+                 </li>`;
+            }
+        }
+        stepsHTML += '</ul>';
+        formulaStepsContent.innerHTML = stepsHTML;
+
+        // --- 3. Interpretation & Table ---
+        let interpHTML = mode.interpretation;
+
+        if (result.table) {
+            // Render Table
+            let tableHTML = `
+                <br><strong>Comparison of Methods:</strong>
+                <table style="width:100%; text-align:center; margin-top:5px; border-collapse: collapse; font-size:0.9em;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.2);">
+                            <th style="padding:4px;">Method</th>
+                            <th style="padding:4px;">${result.visualData.label2}</th>
+                            <th style="padding:4px;">${result.visualData.label1}</th>
+                            <th style="padding:4px;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="padding:4px; text-align:left;">Kelsey</td>
+                            <td>${result.table.kelsey.n1}</td>
+                            <td>${result.table.kelsey.n2}</td>
+                            <td>${result.table.kelsey.total}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:4px; text-align:left;">Fleiss</td>
+                            <td>${result.table.fleiss.n1}</td>
+                            <td>${result.table.fleiss.n2}</td>
+                            <td>${result.table.fleiss.total}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:4px; text-align:left;">Fleiss CC</td>
+                            <td>${result.table.fleiss_cc.n1}</td>
+                            <td>${result.table.fleiss_cc.n2}</td>
+                            <td>${result.table.fleiss_cc.total}</td>
+                        </tr>
+                    </tbody>
+                </table>
+             `;
+            interpHTML += tableHTML;
+        }
+
+        interpretationContent.innerHTML = interpHTML;
+
         currentVisualData = result.visualData;
     } catch (e) {
         console.error("Calc Error:", e);

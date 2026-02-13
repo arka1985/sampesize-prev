@@ -444,34 +444,102 @@ footer {
 }
 
 @media (max-width: 768px) {
+    #app {
+        padding: 1rem;
+        gap: 1.5rem;
+    }
+
     h1 {
         font-size: 1.8rem;
+        line-height: 1.2;
+    }
+
+    .subtitle {
+        font-size: 1rem;
     }
 
     .glass-panel {
         padding: 1.5rem;
+        border-radius: 20px;
     }
 
+    /* Stack Visualization on Mobile */
     .visualization-container {
         flex-direction: column;
+        gap: 1.5rem;
+        padding-bottom: 1.5rem;
+    }
+
+    .metric {
+        width: 100%;
+        padding: 1.5rem;
+        box-sizing: border-box;
     }
 
     .metric .value {
-        font-size: 4rem;
+        font-size: 3.5rem;
+        /* Smaller for mobile to prevent wrapping */
+    }
+
+    .metric .formula-display {
+        font-size: 0.9rem;
+        padding: 0.4rem;
+        overflow-x: auto;
+        /* Allow formula scroll if too long */
     }
 
     .metric .dynamic-params {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         padding: 0.4rem;
         white-space: normal;
-        /* Allow wrapping */
         word-break: break-word;
-        /* Ensure it breaks if needed */
     }
 
     .visual-representation {
         width: 100%;
-        height: 180px;
+        height: 300px;
+        /* Taller on mobile for better visibility */
+        margin-top: 1rem;
+    }
+
+    .study-selector-container {
+        flex-direction: column;
+        gap: 0.5rem;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .study-dropdown {
+        width: 100%;
+        text-align: center;
+        font-size: 1.1rem;
+        /* Larger touch target */
+        padding: 0.8rem;
+    }
+
+    /* Bigger touch targets for sliders */
+    input[type=range] {
+        height: 30px;
+        margin: 15px 0;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+        width: 28px;
+        height: 28px;
+    }
+
+    .control-group label {
+        font-size: 1rem;
+    }
+
+    .info-section {
+        grid-template-columns: 1fr;
+        /* Stack info cards */
+    }
+
+    footer {
+        padding: 1.5rem;
+        font-size: 0.85rem;
     }
 }
 
@@ -662,4 +730,26 @@ footer {
 
 .pink-text {
     color: var(--secondary-color);
+}
+
+.disclaimer {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    font-size: 0.85rem;
+    color: #666;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.4;
+}
+
+.disclaimer a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.disclaimer a:hover {
+    text-decoration: underline;
 }

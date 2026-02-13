@@ -306,12 +306,14 @@ function init() {
             sampleCanvas.height = rect.height;
         }
         // Resize Observer for Sample Canvas
-        // Resize Observer for Sample Canvas
         const observer = new ResizeObserver(() => {
-            resizeSampleCanvas();
-            loop();
+            // Debounce/Defer to avoid Loop Limit Exceeded
+            requestAnimationFrame(() => {
+                resizeSampleCanvas();
+                loop();
+            });
         });
-        if (sampleCanvas.parentElement) observer.observe(sampleCanvas.parentElement);
+        observer.observe(sampleCanvas);
     }
 
     // Initialize logic
@@ -327,8 +329,7 @@ function init() {
         width = window.innerWidth;
         height = window.innerHeight;
         if (bgCanvas) resizeCanvas(bgCanvas);
-        if (bgCanvas) resizeCanvas(bgCanvas);
-        resizeSampleCanvas();
+        // sampleCanvas handled by Observer mostly, but good to ensure
         initBgParticles();
     });
 
@@ -342,22 +343,27 @@ function resizeCanvas(canvas) {
 }
 
 function resizeSampleCanvas() {
-    if (sampleCanvas && sampleCanvas.parentElement) {
-        const rect = sampleCanvas.parentElement.getBoundingClientRect();
+    if (sampleCanvas) {
+        // Use the CANVAS client rect, not parent
+        const rect = sampleCanvas.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
 
-        // Physical size
-        sampleCanvas.width = rect.width * dpr;
-        sampleCanvas.height = rect.height * dpr;
+        const newWidth = Math.floor(rect.width * dpr);
+        const newHeight = Math.floor(rect.height * dpr);
 
-        // Logical size for drawing
-        sampleCanvas.logicalWidth = rect.width;
-        sampleCanvas.logicalHeight = rect.height;
+        if (sampleCanvas.width !== newWidth || sampleCanvas.height !== newHeight) {
+            sampleCanvas.width = newWidth;
+            sampleCanvas.height = newHeight;
 
-        // Scale context
-        if (sampleCtx) {
-            sampleCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset
-            sampleCtx.scale(dpr, dpr);
+            // Logical size for drawing
+            sampleCanvas.logicalWidth = rect.width;
+            sampleCanvas.logicalHeight = rect.height;
+
+            // Scale context
+            if (sampleCtx) {
+                sampleCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset
+                sampleCtx.scale(dpr, dpr);
+            }
         }
     }
 }
